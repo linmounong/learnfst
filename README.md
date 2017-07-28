@@ -1,0 +1,2 @@
+# learnfst
+Learning openfst
