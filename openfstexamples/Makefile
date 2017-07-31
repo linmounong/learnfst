@@ -1,34 +1,44 @@
 all: draw
 
-build/man.fst: build man.fst.txt
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < man.fst.txt > build/man.fst
-
-build/Martian.fst: build Martian.fst.txt
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < Martian.fst.txt > build/Martian.fst
-
-build/Mars.fst: build Mars.fst.txt
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < Mars.fst.txt > build/Mars.fst
-
-build/lexicon.fst: build/Mars.fst build/Martian.fst build/man.fst
-	cd build && fstunion man.fst Mars.fst | fstunion - Martian.fst | fstclosure > lexicon.fst
-
-build:
-	mkdir -p build
-
 clean:
-	rm -rf build
+	rm *.pdf *.fst *.txt
 
-draw: build/lexicon.pdf build/Mars.pdf build/Martian.pdf build/man.pdf
-	nautilus build
+# fst txt
 
-build/Mars.pdf: build/Mars.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait build/Mars.fst | dot -Tpdf > build/Mars.pdf
+lex.fst.txt:
+	python bin/makelex.py < data/wotw.syms > lex.fst.txt
 
-build/Martian.pdf: build/Martian.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait build/Martian.fst | dot -Tpdf > build/Martian.pdf
+Marsman.fst.txt:
+	echo "Mars man!" | python bin/makeinput.py > Marsman.fst.txt
 
-build/man.pdf: build/man.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait build/man.fst | dot -Tpdf > build/man.pdf
+# fst
 
-build/lexicon.pdf: build/lexicon.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait build/lexicon.fst | dot -Tpdf > build/lexicon.pdf
+lex.fst: lex.fst.txt punct.fst
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < lex.fst.txt | fstconcat - punct.fst | fstclosure > lex.fst
+
+lex_opt.fst: lex.fst
+	fstrmepsilon lex.fst | fstdeterminize | fstminimize > lex_opt.fst
+
+punct.fst:
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < data/full_punct.txt > punct.fst
+
+Marsman.fst: Marsman.fst.txt
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < Marsman.fst.txt > Marsman.fst
+
+tokens.fst: Marsman.fst lex_opt.fst
+	fstcompose Marsman.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > tokens.fst
+
+# pdf
+
+draw: punct.pdf Marsman.pdf tokens.pdf
+	nautilus .
+
+punct.pdf: punct.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait punct.fst | dot -Tpdf > punct.pdf
+
+tokens.pdf: tokens.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait tokens.fst | dot -Tpdf > tokens.pdf
+
+Marsman.pdf: Marsman.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait Marsman.fst | dot -Tpdf > Marsman.pdf
+

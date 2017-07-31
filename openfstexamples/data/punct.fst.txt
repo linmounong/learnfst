@@ -1,0 +1,6 @@
+0 1 <space> <epsilon>
+0 1 . <epsilon>
+0 1 , <epsilon>
+0 1 ? <epsilon>
+0 1 ! <epsilon>
+1
