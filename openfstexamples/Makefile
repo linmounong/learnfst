@@ -38,6 +38,18 @@ q1.fst:
 sol1.fst: q1.fst lex_opt.fst
 	fstcompose q1.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > sol1.fst
 
+q2b.fst:
+	echo "num_final_states" | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > q2b.fst
+
+camelcase.fst:
+	./bin/make2b.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > camelcase.fst
+
+sol2b.fst: camelcase.fst q2b.fst
+	fstcompose q2b.fst camelcase.fst | fstproject --project_output | fstrmepsilon > sol2b.fst
+
+
+
+
 
 
 # prebuilt fst
@@ -52,7 +64,7 @@ prebuilt/numbers.fst: prebuilt
 
 # pdf
 
-draw: punct.pdf Marsman.pdf tokens.pdf small_numbers.pdf sol1.pdf
+draw: punct.pdf Marsman.pdf tokens.pdf small_numbers.pdf sol1.pdf sol2.pdf
 	nautilus .
 
 punct.pdf: punct.fst
@@ -70,3 +82,5 @@ tokens.pdf: tokens.fst
 sol1.pdf: sol1.fst
 	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait sol1.fst | dot -Tpdf > sol1.pdf
 
+sol2b.pdf: sol2b.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait sol2b.fst | dot -Tpdf > sol2b.pdf
