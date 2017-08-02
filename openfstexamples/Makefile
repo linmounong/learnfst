@@ -1,9 +1,9 @@
-SHELL = /bin/bash -o pipefail
+SHELL=/bin/bash -o pipefail
 
 all: draw a1 a2 a4
 
 clean:
-	rm -f *.pdf *.fst *.txt
+	rm -f *.pdf *.fst *.txt *.pairs
 
 # delete output on errors
 .DELETE_ON_ERRORS:
@@ -99,9 +99,42 @@ a4_Aa_xxxx_isorted.fst: downcase_isorted.fst q4.fst
 a4_Aa_xxxx_osorted.fst: downcase_osorted.fst q4.fst
 	time fstcompose $? $@
 
+# exercise 5
+
+marsman.fst: Marsman.fst downcase.fst
+	fstproject Marsman.fst | fstcompose - downcase.fst | fstproject --project_output > $@
+
+wotw.lm.fst:
+	gzip -dc data/wotw.lm.gz | fstcompile --isymbols=data/wotw.syms --osymbols=data/wotw.syms > $@
+
+prediction.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst
+	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstshortestpath | fstrmepsilon | fsttopsort > $@
+
+# NOTE disabled, hard to compile
+# lex_lookahead.fst: lex_opt.fst
+# 	fstconvert --fst_type=olabel_lookahead --save_relabel_opairs=relabel.pairs $< > $@
+# 
+# wotw_relabel.lm.fst: wotw.lm.fst lex_lookahead.fst
+# 	fstrelabel --relabel_ipairs=relabel.pairs wotw.lm.fst | fstarcsort --sort_type=ilabel > $@
+# 
+# wotw.fst: lex_lookahead.fst wotw_relabel.lm.fst
+# 	fstcompose $? > $@
+# 
+# case_restore.fst: downcase.fst wotw.fst
+# 	fstinvert downcase.fst | fstcompose - wotw.fst > $@
+
+a5a.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst
+	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstrmepsilon | fstshortestpath --unique=true --nshortest=2 | fstrmepsilon | fsttopsort > $@
+
+ac.fst: prediction.fst
+	fstencode --encode_weights $< /dev/null | fstproject --project_output | fstrmepsilon > $@
+
+a5b.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst ac.fst
+	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstdifference - ac.fst | fstshortestpath | fstrmepsilon | fsttopsort > $@
+
 # pdf
 
-draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf
+draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf marsman.pdf a5a.pdf a5b.pdf
 	nautilus .
 
 punct.pdf: punct.fst
@@ -121,3 +154,13 @@ Marsman.pdf: Marsman.fst
 
 Marsman_tokens.pdf: Marsman_tokens.fst
 	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
+
+marsman.pdf: marsman.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait $< | dot -Tpdf > $@
+
+a5a.pdf: a5a.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
+
+a5b.pdf: a5b.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
+
