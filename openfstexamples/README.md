@@ -11,9 +11,9 @@ make
 make prebuild
 
 # exercise solutions
-make sol1
-make sol2
-make sol4
+make a1
+make a2
+make a4
 ```
 
 For more, see `Makefile`.

@@ -1,63 +1,85 @@
-all: draw sol1 sol2 sol4
+SHELL = /bin/bash -o pipefail
+
+all: draw a1 a2 a4
 
 clean:
-	rm *.pdf *.fst *.txt
+	rm -f *.pdf *.fst *.txt
+
+# delete output on errors
+.DELETE_ON_ERRORS:
 
 # fst txt
 
 lex.fst.txt:
-	./bin/makelex.py < data/wotw.syms > lex.fst.txt
+	./bin/makelex.py < data/wotw.syms > $@
 
-Marsman.fst.txt:
-	echo "Mars man!" | ./bin/makeinput.py > Marsman.fst.txt
-
-
-# fst
+# basic fst
 
 lex.fst: lex.fst.txt punct.fst
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < lex.fst.txt | fstunion - prebuilt/numbers.fst | fstconcat - punct.fst | fstclosure > lex.fst
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < lex.fst.txt | fstunion - prebuilt/numbers.fst | fstconcat - punct.fst | fstclosure > $@
 
 lex_opt.fst: lex.fst
-	fstrmepsilon lex.fst | fstdeterminize | fstminimize | fstarcsort --sort_type=ilabel > lex_opt.fst
+	fstrmepsilon $< | fstdeterminize | fstminimize | fstarcsort --sort_type=ilabel > $@
 
 punct.fst:
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < data/full_punct.txt > punct.fst
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < data/full_punct.txt > $@
 
 downcase.fst:
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < data/full_downcase.txt > downcase.fst
-
-Marsman.fst: Marsman.fst.txt
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < Marsman.fst.txt > Marsman.fst
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < data/full_downcase.txt > $@
 
 small_numbers.fst:
-	./bin/makenumbers.py 100 | fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms | fstrmepsilon | fstdeterminize | fstminimize > small_numbers.fst
+	./bin/makenumbers.py 100 | fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms | fstrmepsilon | fstdeterminize | fstminimize > $@
 
-tokens.fst: Marsman.fst lex_opt.fst
-	fstcompose Marsman.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > tokens.fst
+# prebuilt fst, not build by default
+
+prebuild: prebuilt/numbers.fst
+
+prebuilt:
+	mkdir -p $@
+
+prebuilt/numbers.fst: prebuilt
+	./bin/makenumbers.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms | fstrmepsilon | fstdeterminize | fstminimize > $@
+
+# Mars man (for testing)
+
+Marsman.fst.txt:
+	echo "Mars man!" | ./bin/makeinput.py > $@
+
+Marsman.fst: Marsman.fst.txt
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < $< > $@
+
+Marsman_tokens.fst: Marsman.fst lex_opt.fst
+	fstcompose $? | fstproject --project_output | fstrmepsilon > $@
+
+# exercise 1
 
 q1.fst:
-	echo "Mars is 4225 miles across." | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > q1.fst
+	echo "Mars is 4225 miles across." | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
 
-sol1: sol1.fst
+a1: a1.fst
 
-sol1.fst: q1.fst lex_opt.fst
-	fstcompose q1.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > sol1.fst
+a1.fst: q1.fst lex_opt.fst
+	fstcompose q1.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > $@
+
+# exercise 2
 
 q2b.fst:
-	echo "num_final_states" | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > q2b.fst
+	echo "num_final_states" | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
 
 camelcase.fst:
-	./bin/make2b.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > camelcase.fst
+	./bin/make2b.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
 
-sol2: sol2b.fst
+a2: a2b.fst
 
-sol2b.fst: camelcase.fst q2b.fst
-	fstcompose q2b.fst camelcase.fst | fstproject --project_output | fstrmepsilon > sol2b.fst
+a2b.fst: q2b.fst camelcase.fst
+	fstcompose $? | fstproject --project_output | fstrmepsilon > $@
+
+# exercise 4
 
 q4.fst:
-	./bin/makerandstring.sh 1000000 | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > q4.fst
+	./bin/makerandstring.sh 1000000 | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
 
-sol4: sol4_xxxx_Aa_isorted.fst sol4_Aa_xxxx_isorted.fst sol4_xxxx_Aa_osorted.fst sol4_Aa_xxxx_osorted.fst
+a4: a4_xxxx_Aa_isorted.fst a4_Aa_xxxx_isorted.fst a4_xxxx_Aa_osorted.fst a4_Aa_xxxx_osorted.fst
 
 downcase_isorted.fst: downcase.fst
 	fstarcsort --sort_type=ilabel $< $@
@@ -65,47 +87,37 @@ downcase_isorted.fst: downcase.fst
 downcase_osorted.fst: downcase.fst
 	fstarcsort --sort_type=olabel $< $@
 
-sol4_xxxx_Aa_isorted.fst: q4.fst downcase_isorted.fst
+a4_xxxx_Aa_isorted.fst: q4.fst downcase_isorted.fst
 	time fstcompose $? $@
 
-sol4_xxxx_Aa_osorted.fst: q4.fst downcase_osorted.fst
+a4_xxxx_Aa_osorted.fst: q4.fst downcase_osorted.fst
 	time fstcompose $? $@
 
-sol4_Aa_xxxx_isorted.fst: downcase_isorted.fst q4.fst
+a4_Aa_xxxx_isorted.fst: downcase_isorted.fst q4.fst
 	time fstcompose $? $@
 
-sol4_Aa_xxxx_osorted.fst: downcase_osorted.fst q4.fst
+a4_Aa_xxxx_osorted.fst: downcase_osorted.fst q4.fst
 	time fstcompose $? $@
-
-# prebuilt fst
-
-prebuild: prebuilt/numbers.fst
-
-prebuilt:
-	mkdir -p prebuilt
-
-prebuilt/numbers.fst: prebuilt
-	./bin/makenumbers.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms | fstrmepsilon | fstdeterminize | fstminimize > prebuilt/numbers.fst
 
 # pdf
 
-draw: punct.pdf Marsman.pdf tokens.pdf small_numbers.pdf sol1.pdf sol2b.pdf
+draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf
 	nautilus .
 
 punct.pdf: punct.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait punct.fst | dot -Tpdf > punct.pdf
-
-Marsman.pdf: Marsman.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait Marsman.fst | dot -Tpdf > Marsman.pdf
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
 
 small_numbers.pdf: small_numbers.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait small_numbers.fst | dot -Tpdf > small_numbers.pdf
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
 
-tokens.pdf: tokens.fst
-	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait tokens.fst | dot -Tpdf > tokens.pdf
+a1.pdf: a1.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
 
-sol1.pdf: sol1.fst
-	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait sol1.fst | dot -Tpdf > sol1.pdf
+a2b.pdf: a2b.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait $< | dot -Tpdf > $@
 
-sol2b.pdf: sol2b.fst
-	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait sol2b.fst | dot -Tpdf > sol2b.pdf
+Marsman.pdf: Marsman.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait $< | dot -Tpdf > $@
+
+Marsman_tokens.pdf: Marsman_tokens.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
