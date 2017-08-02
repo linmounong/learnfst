@@ -1,4 +1,4 @@
-all: draw
+all: draw sol1 sol2 sol4
 
 clean:
 	rm *.pdf *.fst *.txt
@@ -18,10 +18,13 @@ lex.fst: lex.fst.txt punct.fst
 	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < lex.fst.txt | fstunion - prebuilt/numbers.fst | fstconcat - punct.fst | fstclosure > lex.fst
 
 lex_opt.fst: lex.fst
-	fstrmepsilon lex.fst | fstdeterminize | fstminimize > lex_opt.fst
+	fstrmepsilon lex.fst | fstdeterminize | fstminimize | fstarcsort --sort_type=ilabel > lex_opt.fst
 
 punct.fst:
 	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < data/full_punct.txt > punct.fst
+
+downcase.fst:
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < data/full_downcase.txt > downcase.fst
 
 Marsman.fst: Marsman.fst.txt
 	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < Marsman.fst.txt > Marsman.fst
@@ -35,6 +38,8 @@ tokens.fst: Marsman.fst lex_opt.fst
 q1.fst:
 	echo "Mars is 4225 miles across." | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > q1.fst
 
+sol1: sol1.fst
+
 sol1.fst: q1.fst lex_opt.fst
 	fstcompose q1.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > sol1.fst
 
@@ -44,13 +49,33 @@ q2b.fst:
 camelcase.fst:
 	./bin/make2b.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > camelcase.fst
 
+sol2: sol2b.fst
+
 sol2b.fst: camelcase.fst q2b.fst
 	fstcompose q2b.fst camelcase.fst | fstproject --project_output | fstrmepsilon > sol2b.fst
 
+q4.fst:
+	./bin/makerandstring.sh 1000000 | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > q4.fst
 
+sol4: sol4_xxxx_Aa_isorted.fst sol4_Aa_xxxx_isorted.fst sol4_xxxx_Aa_osorted.fst sol4_Aa_xxxx_osorted.fst
 
+downcase_isorted.fst: downcase.fst
+	fstarcsort --sort_type=ilabel $< $@
 
+downcase_osorted.fst: downcase.fst
+	fstarcsort --sort_type=olabel $< $@
 
+sol4_xxxx_Aa_isorted.fst: q4.fst downcase_isorted.fst
+	time fstcompose $? $@
+
+sol4_xxxx_Aa_osorted.fst: q4.fst downcase_osorted.fst
+	time fstcompose $? $@
+
+sol4_Aa_xxxx_isorted.fst: downcase_isorted.fst q4.fst
+	time fstcompose $? $@
+
+sol4_Aa_xxxx_osorted.fst: downcase_osorted.fst q4.fst
+	time fstcompose $? $@
 
 # prebuilt fst
 
@@ -64,7 +89,7 @@ prebuilt/numbers.fst: prebuilt
 
 # pdf
 
-draw: punct.pdf Marsman.pdf tokens.pdf small_numbers.pdf sol1.pdf sol2.pdf
+draw: punct.pdf Marsman.pdf tokens.pdf small_numbers.pdf sol1.pdf sol2b.pdf
 	nautilus .
 
 punct.pdf: punct.fst
