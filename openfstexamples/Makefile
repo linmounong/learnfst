@@ -1,6 +1,6 @@
 SHELL=/bin/bash -o pipefail
 
-all: draw a1 a2 a4 a7
+all: draw a1 a2 a4 a7 a8
 
 clean:
 	rm -f *.pdf *.fst *.txt *.pairs
@@ -151,9 +151,40 @@ a7a.fst: q7.fst digit2abc.fst lex_opt.fst
 a7b.fst: a7a.fst wotw.lm.fst
 	fstcompose $? | fstrmepsilon | fstdeterminize | fstminimize | fstshortestpath --unique=true --nshortest=3 | fstrmepsilon | fsttopsort > $@
 
+# exercise 8
+
+a8: a8a.fst
+
+edit1.fst:
+	./bin/makeedit.py 1 | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms | fstarcsort --sort_type=ilabel > $@
+
+edit2.fst:
+	./bin/makeedit.py 2 | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms | fstarcsort --sort_type=olabel > $@
+
+ref.fst:
+	echo "abcde" | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
+
+hyp.fst:
+	echo "ac" | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
+
+ref_edit.fst: ref.fst edit1.fst
+	fstcompose $? | fstarcsort > $@
+
+hyp_edit.fst: edit2.fst hyp.fst
+	fstcompose $? | fstarcsort > $@
+
+distance.fst: ref_edit.fst hyp_edit.fst
+	fstcompose $? | fstshortestpath | fstrmepsilon | fsttopsort > $@
+
+fixn.fst:
+	./bin/makeedit.py 3 | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms | fstarcsort --sort_type=ilabel > $@
+
+a8a.fst: ref_edit.fst hyp_edit.fst fixn.fst
+	fstcompose ref_edit.fst fixn.fst | fstcompose - hyp_edit.fst | fstshortestpath | fstrmepsilon | fsttopsort > $@
+
 # pdf
 
-draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf marsman.pdf a5a.pdf a5b.pdf q7.pdf a7a.pdf a7b.pdf
+draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf marsman.pdf a5a.pdf a5b.pdf q7.pdf a7a.pdf a7b.pdf a8a.pdf
 	nautilus .
 
 punct.pdf: punct.fst
@@ -191,3 +222,9 @@ a7a.pdf: a7a.fst
 
 a7b.pdf: a7b.fst
 	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
+
+fixn.pdf: fixn.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait $< | dot -Tpdf > $@
+
+a8a.pdf: a8a.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait $< | dot -Tpdf > $@
