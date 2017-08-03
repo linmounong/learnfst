@@ -14,6 +14,7 @@ make prebuild
 make a1
 make a2
 make a4
+make a7
 ```
 
 For more, see `Makefile`.

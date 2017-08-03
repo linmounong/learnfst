@@ -1,6 +1,6 @@
 SHELL=/bin/bash -o pipefail
 
-all: draw a1 a2 a4
+all: draw a1 a2 a4 a7
 
 clean:
 	rm -f *.pdf *.fst *.txt *.pairs
@@ -132,9 +132,28 @@ ac.fst: prediction.fst
 a5b.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst ac.fst
 	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstdifference - ac.fst | fstshortestpath | fstrmepsilon | fsttopsort > $@
 
+# exercise 7
+
+a7: a7a.fst a7b.fst
+
+digit2abc.fst:
+	./bin/maket9.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms > $@
+
+abc2digit.fst: digit2abc.fst
+	fstinvert $< $@
+
+q7.fst: abc2digit.fst
+	echo "no one would have believed in the last years of the nineteenth century that this world was being watched keenly and closely." | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms | fstcompose - $< | fstproject --project_output > $@
+
+a7a.fst: q7.fst digit2abc.fst lex_opt.fst
+	fstcompose q7.fst digit2abc.fst | fstcompose - lex_opt.fst | fstproject --project_output | fstrmepsilon | fstdeterminize | fstminimize > $@
+
+a7b.fst: a7a.fst wotw.lm.fst
+	fstcompose $? | fstrmepsilon | fstdeterminize | fstminimize | fstshortestpath --unique=true --nshortest=3 | fstrmepsilon | fsttopsort > $@
+
 # pdf
 
-draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf marsman.pdf a5a.pdf a5b.pdf
+draw: punct.pdf small_numbers.pdf a1.pdf a2b.pdf Marsman.pdf Marsman_tokens.pdf marsman.pdf a5a.pdf a5b.pdf q7.pdf a7a.pdf a7b.pdf
 	nautilus .
 
 punct.pdf: punct.fst
@@ -164,3 +183,11 @@ a5a.pdf: a5a.fst
 a5b.pdf: a5b.fst
 	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
 
+q7.pdf: q7.fst
+	fstdraw --isymbols=data/ascii.syms --osymbols=data/ascii.syms -portrait $< | dot -Tpdf > $@
+
+a7a.pdf: a7a.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
+
+a7b.pdf: a7b.fst
+	fstdraw --isymbols=data/wotw.syms --osymbols=data/wotw.syms -portrait $< | dot -Tpdf > $@
