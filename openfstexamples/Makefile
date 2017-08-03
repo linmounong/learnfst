@@ -10,15 +10,15 @@ clean:
 
 # fst txt
 
-lex.fst.txt:
+lexicon.fst.txt:
 	./bin/makelex.py < data/wotw.syms > $@
 
 # basic fst
 
-lex.fst: lex.fst.txt punct.fst
-	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < lex.fst.txt | fstunion - prebuilt/numbers.fst | fstconcat - punct.fst | fstclosure > $@
+lexicon.fst: lexicon.fst.txt punct.fst
+	fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms < lexicon.fst.txt | fstunion - prebuilt/numbers.fst | fstconcat - punct.fst | fstclosure > $@
 
-lex_opt.fst: lex.fst
+lexicon_opt.fst: lexicon.fst
 	fstrmepsilon $< | fstdeterminize | fstminimize | fstarcsort --sort_type=ilabel > $@
 
 punct.fst:
@@ -26,6 +26,12 @@ punct.fst:
 
 downcase.fst:
 	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < data/full_downcase.txt > $@
+
+downcase_token_noop.fst: lexicon_opt.fst downcase.fst
+	fstinvert lexicon_opt.fst | fstcompose - downcase.fst | fstcompose - lexicon_opt.fst > $@
+
+downcase_token.fst: downcase_token_noop.fst
+	fstrmepsilon $< | fstdeterminize | fstminimize > $@ 
 
 small_numbers.fst:
 	./bin/makenumbers.py 100 | fstcompile --isymbols=data/ascii.syms --osymbols=data/wotw.syms | fstrmepsilon | fstdeterminize | fstminimize > $@
@@ -48,7 +54,7 @@ Marsman.fst.txt:
 Marsman.fst: Marsman.fst.txt
 	fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms < $< > $@
 
-Marsman_tokens.fst: Marsman.fst lex_opt.fst
+Marsman_tokens.fst: Marsman.fst lexicon_opt.fst
 	fstcompose $? | fstproject --project_output | fstrmepsilon > $@
 
 # exercise 1
@@ -58,8 +64,8 @@ q1.fst:
 
 a1: a1.fst
 
-a1.fst: q1.fst lex_opt.fst
-	fstcompose q1.fst lex_opt.fst | fstproject --project_output | fstrmepsilon > $@
+a1.fst: q1.fst lexicon_opt.fst
+	fstcompose q1.fst lexicon_opt.fst | fstproject --project_output | fstrmepsilon > $@
 
 # exercise 2
 
@@ -73,6 +79,17 @@ a2: a2b.fst
 
 a2b.fst: q2b.fst camelcase.fst
 	fstcompose $? | fstproject --project_output | fstrmepsilon > $@
+# exercise 3
+a3: a3a a3b
+
+a3a:
+	echo "the token-level downcase transducer works for inputs which satisfy two conditions:
+	1) this inputs must be from wotw.syms.
+	2) there input word must have a downcased counterpart in wotw.syms.
+	To cover all inputs from wotw.syms, we need to add a downcased word for each word in wotw.syms,
+	and build the transducer again" 
+a3b: downcase_token.fst
+	echo "0 1 The The\n 1" | fstcompile downcase_token.fst > a3b.fst
 
 # exercise 4
 
@@ -107,11 +124,11 @@ marsman.fst: Marsman.fst downcase.fst
 wotw.lm.fst:
 	gzip -dc data/wotw.lm.gz | fstcompile --isymbols=data/wotw.syms --osymbols=data/wotw.syms > $@
 
-prediction.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst
-	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstshortestpath | fstrmepsilon | fsttopsort > $@
+prediction.fst: downcase.fst marsman.fst lexicon_opt.fst wotw.lm.fst
+	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lexicon_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstshortestpath | fstrmepsilon | fsttopsort > $@
 
 # NOTE disabled, hard to compile
-# lex_lookahead.fst: lex_opt.fst
+# lex_lookahead.fst: lexicon_opt.fst
 # 	fstconvert --fst_type=olabel_lookahead --save_relabel_opairs=relabel.pairs $< > $@
 # 
 # wotw_relabel.lm.fst: wotw.lm.fst lex_lookahead.fst
@@ -123,14 +140,14 @@ prediction.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst
 # case_restore.fst: downcase.fst wotw.fst
 # 	fstinvert downcase.fst | fstcompose - wotw.fst > $@
 
-a5a.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst
-	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstrmepsilon | fstshortestpath --unique=true --nshortest=2 | fstrmepsilon | fsttopsort > $@
+a5a.fst: downcase.fst marsman.fst lexicon_opt.fst wotw.lm.fst
+	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lexicon_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstrmepsilon | fstshortestpath --unique=true --nshortest=2 | fstrmepsilon | fsttopsort > $@
 
 ac.fst: prediction.fst
 	fstencode --encode_weights $< /dev/null | fstproject --project_output | fstrmepsilon > $@
 
-a5b.fst: downcase.fst marsman.fst lex_opt.fst wotw.lm.fst ac.fst
-	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lex_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstdifference - ac.fst | fstshortestpath | fstrmepsilon | fsttopsort > $@
+a5b.fst: downcase.fst marsman.fst lexicon_opt.fst wotw.lm.fst ac.fst
+	fstcompose downcase.fst marsman.fst | fstinvert | fstcompose - lexicon_opt.fst | fstcompose - wotw.lm.fst | fstproject --project_output | fstdifference - ac.fst | fstshortestpath | fstrmepsilon | fsttopsort > $@
 
 # exercise 7
 
@@ -145,8 +162,8 @@ abc2digit.fst: digit2abc.fst
 q7.fst: abc2digit.fst
 	echo "no one would have believed in the last years of the nineteenth century that this world was being watched keenly and closely." | ./bin/makeinput.py | fstcompile --isymbols=data/ascii.syms --osymbols=data/ascii.syms | fstcompose - $< | fstproject --project_output > $@
 
-a7a.fst: q7.fst digit2abc.fst lex_opt.fst
-	fstcompose q7.fst digit2abc.fst | fstcompose - lex_opt.fst | fstproject --project_output | fstrmepsilon | fstdeterminize | fstminimize > $@
+a7a.fst: q7.fst digit2abc.fst lexicon_opt.fst
+	fstcompose q7.fst digit2abc.fst | fstcompose - lexicon_opt.fst | fstproject --project_output | fstrmepsilon | fstdeterminize | fstminimize > $@
 
 a7b.fst: a7a.fst wotw.lm.fst
 	fstcompose $? | fstrmepsilon | fstdeterminize | fstminimize | fstshortestpath --unique=true --nshortest=3 | fstrmepsilon | fsttopsort > $@
